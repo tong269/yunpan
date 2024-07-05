@@ -9,5 +9,4 @@ public interface UserDao {
     User checkUser(User user) throws Exception;
 
     User findUser(User user) throws Exception;
-
 }

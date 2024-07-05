@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 public class UserService {
     @Autowired
     private UserDao userDao;
+
     public boolean addUser(User user) throws Exception{
         User users=userDao.checkUser(user);
         if(users==null) {

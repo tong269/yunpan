@@ -20,6 +20,24 @@ public class UserController {
     @Autowired
     private FileService FileService;//实例化
 
+    @RequestMapping("/regist")
+    public String regist(HttpServletRequest request, HttpServletResponse response, User user) throws Exception{
+        System.out.println(user.getUsername()+"-------"+user.getPassword());
+        if(user.getUsername() == null || user.getPassword() == null||user.getUsername().equals("")||user.getPassword().equals("")){
+            request.setAttribute("msg", "请输入用户名和密码");
+            return "regist";
+        }else{
+            boolean isSuccess = UserService.addUser(user);
+            if(isSuccess){
+                FileService.addNewNameSpace(request, user.getUsername());
+                return "login";
+            }else{
+                request.setAttribute("msg", "注册失败");
+                return "regist";
+            }
+        }
+    }
+
     /*登录请求*/
     @RequestMapping("/login")
     public String login(HttpServletRequest request, User user){
@@ -45,4 +63,5 @@ public class UserController {
         request.getSession().invalidate();
         return "redirect:/user/login.action";
     }
+
 }
