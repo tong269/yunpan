@@ -263,4 +263,74 @@ public class FileService {
             downloadFile.delete();
         }
     }
+
+    /**
+     * 查找文件
+     *
+     * @param request
+     * @param currentPath
+     *            当前路径
+     * @param regType
+     *            文件类型
+     * @return
+     */
+    public List<FileCustom> searchFile(HttpServletRequest request, String currentPath, String regType) {
+        List<FileCustom> list = new ArrayList<>();
+        matchFile(request, list, new File(getSearchFileName(request, currentPath)), regType == null ? "" : regType);
+        return list;
+    }
+
+    private String getSearchFileName(HttpServletRequest request, String fileName) {
+        if (fileName == null||fileName.equals("\\")) {
+            System.out.println(1);
+            fileName = "";
+        }
+        String username = UserUtils.getUsername(request);
+        String realpath=getRootPath(request) + username + File.separator + fileName;
+        return realpath;
+    }
+
+    private void matchFile(HttpServletRequest request, List<FileCustom> list, File dirFile, String regType) {
+        File[] listFiles = dirFile.listFiles();
+        if (listFiles != null) {
+            for (File file : listFiles) {
+                if (file.isFile()) {
+                    String suffixType = FileUtils.getFileType(file);
+                    if (suffixType.equals(regType)) {
+                        FileCustom custom = new FileCustom();
+                        custom.setFileName(file.getName());
+                        custom.setLastTime(FileUtils.formatTime(file.lastModified()));
+                        String parentPath = file.getParent();
+                        String prePath = parentPath.substring(
+                                parentPath.indexOf(getSearchFileName(request, null)) + getSearchFileName(request, null).length());
+                        custom.setCurrentPath(File.separator + prePath);
+                        if (file.isDirectory()) {
+                            custom.setFileSize("-");
+                        } else {
+                            custom.setFileSize(FileUtils.getDataSize(file.length()));
+                        }
+                        custom.setFileType(FileUtils.getFileType(file));
+                        list.add(custom);
+                    }
+                } else {
+                    matchFile(request, list, file, regType);
+                }
+            }
+        }
+    }
+
+    /**
+     * 新建文件夹
+     *
+     * @param request
+     * @param currentPath
+     *            当前路径
+     * @param directoryName
+     *            文件夹名
+     * @return
+     */
+    public boolean addDirectory(HttpServletRequest request, String currentPath, String directoryName) {
+        File file = new File(getFileName(request, currentPath), directoryName);
+        return file.mkdir();
+    }
 }

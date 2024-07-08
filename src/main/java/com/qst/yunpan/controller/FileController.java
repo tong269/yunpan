@@ -87,5 +87,46 @@ public class FileController {
         }
     }
 
+    /**
+     * 查找文件（模糊查询）
+     *
+     * @param currentPath
+     *            当面路径
+     * @param regType
+     *            查找文件类型
+     * @return Json对象
+     */
+    @RequestMapping("/searchFile")
+    public @ResponseBody Result<List<FileCustom>> searchFile(String currentPath, String regType) {
+        try {
+            List<FileCustom> searchFile = fileService.searchFile(request, currentPath, regType);
+            Result<List<FileCustom>> result = new Result<>(376, true, "查找成功");
+            result.setData(searchFile);
+            return result;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new Result<>(371, false, "查找失败");
+        }
+    }
+
+    /**
+     * 新建文件夹
+     *
+     * @param currentPath
+     *            当前路径
+     * @param directoryName
+     *            文件夹名
+     * @return Json对象
+     */
+    @RequestMapping("/addDirectory")
+    public @ResponseBody Result<String> addDirectory(String currentPath, String directoryName) {
+        try {
+            fileService.addDirectory(request, currentPath, directoryName);
+            return new Result<>(336, true, "添加成功");
+        } catch (Exception e) {
+            return new Result<>(331, false, "添加失败");
+        }
+    }
+
 
 }
