@@ -1,8 +1,11 @@
 package com.qst.yunpan.controller;
 
 import com.qst.yunpan.pojo.FileCustom;
-
 import com.qst.yunpan.pojo.Result;
+import com.qst.yunpan.pojo.SummaryFile;
+
+
+
 import com.qst.yunpan.service.FileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -10,15 +13,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
-
 @Controller
 @RequestMapping("/file")
 public class FileController {
@@ -88,18 +93,20 @@ public class FileController {
     }
 
     /**
-     * 查找文件（模糊查询）
-     *
-     * @param currentPath
-     *            当面路径
-     * @param regType
-     *            查找文件类型
-     * @return Json对象
-     */
+ * 查找文件（模糊查询）
+            *
+            * @param reg
+ *            要查找的文件名
+ * @param currentPath
+ *            当面路径
+ * @param regType
+ *            查找文件类型
+ * @return Json对象
+ */
     @RequestMapping("/searchFile")
-    public @ResponseBody Result<List<FileCustom>> searchFile(String currentPath, String regType) {
+    public @ResponseBody Result<List<FileCustom>> searchFile(String reg,String currentPath, String regType) {
         try {
-            List<FileCustom> searchFile = fileService.searchFile(request, currentPath, regType);
+            List<FileCustom> searchFile = fileService.searchFile(request, currentPath, reg, regType);
             Result<List<FileCustom>> result = new Result<>(376, true, "查找成功");
             result.setData(searchFile);
             return result;
@@ -148,4 +155,65 @@ public class FileController {
         }
     }
 
+    /**
+     * 重命名文件夹
+     *
+     * @param currentPath
+     *            当前路径
+     * @param srcName
+     *            源文件名
+     * @param destName
+     *            目标文件名
+     * @return Json对象
+     */
+    @RequestMapping("/renameDirectory")
+    public @ResponseBody Result<String> renameDirectory(String currentPath,    String srcName, String destName) {
+        try {
+            fileService.renameDirectory(request, currentPath, srcName, destName);
+            return new Result<>(356, true, "重命名成功");
+        } catch (Exception e) {
+            return new Result<>(351, false, "重命名失败");
+        }
+    }
+
+    @RequestMapping("/summarylist")
+    public String summarylist(Model model) {
+        String webrootpath = fileService.getFileName(request, "");
+        int number = webrootpath.length();
+        SummaryFile rootlist = fileService.summarylistFile(webrootpath, number);
+        model.addAttribute("rootlist", rootlist);
+        return "summarylist";
+    }
+
+    @RequestMapping("/copyDirectory")
+    public @ResponseBody Result<String> copyDirectory(String currentPath,String[] directoryName, String targetdirectorypath) throws Exception {
+        try {
+            fileService.copyDirectory(request, currentPath, directoryName,
+                    targetdirectorypath);
+            return new Result<>(366, true, "复制成功");
+        } catch (IOException e) {
+            return new Result<>(361, true, "复制失败");
+        }
+    }
+
+    /**
+     * 移动文件夹
+     *
+     * @param currentPath
+     *            当前路径
+     * @param directoryName
+     *            文件夹名
+     * @param targetdirectorypath
+     *            目标位置
+     * @return Json对象
+     */
+    @RequestMapping("/moveDirectory")
+    public @ResponseBody Result<String> moveDirectory(String currentPath,String[] directoryName, String targetdirectorypath) {
+        try {
+            fileService.moveDirectory(request, currentPath, directoryName,targetdirectorypath);
+            return new Result<>(366, true, "移动成功");
+        } catch (Exception e) {
+            return new Result<>(361, true, "移动失败");
+        }
+    }
 }

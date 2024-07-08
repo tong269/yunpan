@@ -4,6 +4,7 @@ import com.qst.yunpan.dao.UserDao;
 import com.qst.yunpan.dao.OfficeDao;
 import com.qst.yunpan.dao.FileDao;
 import com.qst.yunpan.pojo.FileCustom;
+import com.qst.yunpan.pojo.SummaryFile;
 import com.qst.yunpan.pojo.User;
 import com.qst.yunpan.utils.FileUtils;
 import com.qst.yunpan.utils.UserUtils;
@@ -16,8 +17,11 @@ import org.springframework.stereotype.Repository;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.*;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -85,8 +89,13 @@ public class FileService {
      * @return
      */
     public String getFileName(HttpServletRequest request, String fileName) {
-        fileName= fileName.replace("\\", "//");
-        if (fileName == null||fileName.equals("\\")) {
+        if (fileName == null) {
+            fileName = "";
+        } else {
+            fileName = fileName.replace("\\", "/");
+        }
+
+        if (fileName.equals("\\")) {
             System.out.println(1);
             fileName = "";
         }
@@ -267,22 +276,6 @@ public class FileService {
         }
     }
 
-    /**
-     * 查找文件
-     *
-     * @param request
-     * @param currentPath
-     *            当前路径
-     * @param regType
-     *            文件类型
-     * @return
-     */
-    public List<FileCustom> searchFile(HttpServletRequest request, String currentPath, String regType) {
-        List<FileCustom> list = new ArrayList<>();
-        matchFile(request, list, new File(getSearchFileName(request, currentPath)), regType == null ? "" : regType);
-        return list;
-    }
-
     private String getSearchFileName(HttpServletRequest request, String fileName) {
         if (fileName == null||fileName.equals("\\")) {
             System.out.println(1);
@@ -293,34 +286,6 @@ public class FileService {
         return realpath;
     }
 
-    private void matchFile(HttpServletRequest request, List<FileCustom> list, File dirFile, String regType) {
-        File[] listFiles = dirFile.listFiles();
-        if (listFiles != null) {
-            for (File file : listFiles) {
-                if (file.isFile()) {
-                    String suffixType = FileUtils.getFileType(file);
-                    if (suffixType.equals(regType)) {
-                        FileCustom custom = new FileCustom();
-                        custom.setFileName(file.getName());
-                        custom.setLastTime(FileUtils.formatTime(file.lastModified()));
-                        String parentPath = file.getParent();
-                        String prePath = parentPath.substring(
-                                parentPath.indexOf(getSearchFileName(request, null)) + getSearchFileName(request, null).length());
-                        custom.setCurrentPath(File.separator + prePath);
-                        if (file.isDirectory()) {
-                            custom.setFileSize("-");
-                        } else {
-                            custom.setFileSize(FileUtils.getDataSize(file.length()));
-                        }
-                        custom.setFileType(FileUtils.getFileType(file));
-                        list.add(custom);
-                    }
-                } else {
-                    matchFile(request, list, file, regType);
-                }
-            }
-        }
-    }
 
     /**
      * 新建文件夹
@@ -365,4 +330,251 @@ public class FileService {
     public String getRecyclePath(HttpServletRequest request) {
         return getFileName(request, User.RECYCLE);
     }
+
+    /**
+     * 重命名文件
+     *
+     * @param request
+     * @param currentPath
+     * @param srcName
+     * @param destName
+     * @return
+     */
+    public boolean renameDirectory(HttpServletRequest request, String currentPath, String srcName, String destName) {
+        //根据源文件名  获取  源地址
+        File file = new File(getFileName(request, currentPath), srcName);
+        //同上
+        File descFile = new File(getFileName(request, currentPath), destName);
+        return file.renameTo(descFile);//重命名
+    }
+
+    /**
+     * 移动的文件列表
+     *
+     * @param realPath
+     *            路径
+     * @param number
+     *            该路径下的文件数量
+     * @return
+     */
+    public SummaryFile summarylistFile(String realPath, int number) {
+        File file = new File(realPath);
+        SummaryFile sF = new SummaryFile();
+        List<SummaryFile> returnlist = new ArrayList<SummaryFile>();
+        if (file.isDirectory()) {
+            sF.setisFile(false);
+            if (realPath.length() <= number) {
+                sF.setfileName("yun盘");
+                sF.setPath("");
+            }else{
+                String path = file.getPath();
+                sF.setfileName(file.getName());
+                //截取固定长度 的字符串，从number开始到value.length-number结束.
+                sF.setPath(path.substring(number));
+            }
+            /* 设置抽象文件夹的包含文件集合 */
+            for (File filex : file.listFiles()) {
+                //获取当前文件的路径，构造该文件
+                SummaryFile innersF = summarylistFile(filex.getPath(), number);
+                if (!innersF.getisFile()) {
+                    returnlist.add(innersF);
+                }
+            }
+            sF.setListFile(returnlist);
+            /* 设置抽象文件夹的包含文件夹个数 */
+            sF.setListdiretory(returnlist.size());
+        } else {
+            sF.setisFile(true);
+        }
+        return sF;
+    }
+
+    public void copyDirectory(HttpServletRequest request, String currentPath, String[] directoryName,String targetdirectorypath) throws Exception {
+        for (String srcName : directoryName) {
+            File srcFile = new File(getFileName(request, currentPath), srcName);
+            File targetFile = new File(getFileName(request, targetdirectorypath), srcName);
+            /* 处理目标目录中存在同名文件或文件夹问题 */
+            String srcname = srcName;
+            String prefixname = "";
+            String targetname = "";
+            if (targetFile.exists()) {
+                String[] srcnamesplit = srcname.split("\\)");
+                if (srcnamesplit.length > 1) {
+                    String intstring = srcnamesplit[0].substring(1);
+                    Pattern pattern = Pattern.compile("[0-9]*");
+                    Matcher isNum = pattern.matcher(intstring);
+                    if (isNum.matches()) {
+                        srcname = srcname.substring(srcnamesplit[0].length() + 1);
+                    }
+                }
+                for (int i = 1; true; i++) {
+                    prefixname = "(" + i + ")";
+                    targetname = prefixname + srcname;
+                    targetFile = new File(targetFile.getParent(), targetname);
+                    if (!targetFile.exists()) {
+                        break;
+                    }
+                }
+                targetFile = new File(targetFile.getParent(), targetname);
+            }
+            /* 复制 */
+            copyfile(srcFile, targetFile);
+        }
+    }
+
+    /**
+     * copy文件
+     *
+     * @param srcFile
+     *            源文件
+     * @param targetFile
+     * 目标文件
+     * @throws IOException
+     */
+    private void copyfile(File srcFile, File targetFile) throws IOException {
+        if (!srcFile.isDirectory()) {
+            /* 如果是文件，直接复制 */
+            targetFile.createNewFile();
+            FileInputStream src = (new FileInputStream(srcFile));
+            FileOutputStream target = new FileOutputStream(targetFile);
+            FileChannel in = src.getChannel();
+            FileChannel out = target.getChannel();
+            in.transferTo(0, in.size(), out);
+            src.close();
+            target.close();
+        } else {
+            /* 如果是文件夹，再遍历 */
+            File[] listFiles = srcFile.listFiles();
+            targetFile.mkdir();
+            for (File file : listFiles) {
+                File realtargetFile = new File(targetFile, file.getName());
+                copyfile(file, realtargetFile);
+            }
+        }
+    }
+
+    /**
+     * 移动文件
+     *
+     * @param request
+     * @param currentPath
+     *            当前路径
+     * @param directoryName
+     *            文件名
+     * @param targetdirectorypath
+     *            目标路径
+     * @throws Exception
+     */
+    public void moveDirectory(HttpServletRequest request, String currentPath, String[] directoryName,String targetdirectorypath) throws Exception {
+        for (String srcName : directoryName) {
+            File srcFile = new File(getFileName(request, currentPath), srcName);
+            File targetFile = new File(getFileName(request, targetdirectorypath), srcName);
+            /* 处理目标目录中存在同名文件或文件夹问题 */
+            String srcname = srcName;
+            String prefixname = "";
+            String targetname = "";
+            if (targetFile.exists()) {
+                String[] srcnamesplit = srcname.split("\\)");
+                if (srcnamesplit.length > 1) {
+                    String intstring = srcnamesplit[0].substring(1);
+                    Pattern pattern = Pattern.compile("[0-9]*");
+                    Matcher isNum = pattern.matcher(intstring);
+                    if (isNum.matches()) {
+                        srcname = srcname.substring(srcnamesplit[0].length() + 1);
+                    }
+                }
+                for (int i = 1; true; i++) {
+                    prefixname = "(" + i + ")";
+                    targetname = prefixname + srcname;
+                    targetFile = new File(targetFile.getParent(), targetname);
+                    if (!targetFile.exists()) {
+                        break;
+                    }
+                }
+                targetFile = new File(targetFile.getParent(), targetname);
+            }
+            /* 移动即先复制，再删除 */
+            copyfile(srcFile, targetFile);
+            delFile(srcFile);
+        }
+    }
+
+    /**
+     * 删除文件
+     *
+     * @param srcFile
+     *            源文件
+     * @throws Exception
+     */
+    private void delFile(File srcFile) throws Exception {
+        /* 如果是文件，直接删除 */
+        if (!srcFile.isDirectory()) {
+            /* 使用map 存储删除的 文件路径，同时保存用户名 */
+            srcFile.delete();
+            return;
+        }
+        /* 如果是文件夹，再遍历 */
+        File[] listFiles = srcFile.listFiles();
+        for (File file : listFiles) {
+            if (file.isDirectory()) {
+                delFile(file);
+            } else {
+                if (file.exists()) {
+                    file.delete();
+                }
+            }
+        }
+        if (srcFile.exists()) {
+            srcFile.delete();
+        }
+    }
+
+    /**
+     * 查找文件
+     *
+     * @param request
+     * @param currentPath
+     *            当前路径
+     * @param reg
+     *            文件名字
+     * @param regType
+     *            文件类型
+     * @return
+     */
+    public List<FileCustom> searchFile(HttpServletRequest request, String currentPath, String reg, String regType) {
+        List<FileCustom> list = new ArrayList<>();
+        matchFile(request, list, new File(getFileName(request, currentPath)), reg, regType == null ? "" : regType);
+        return list;
+    }
+
+    private void matchFile(HttpServletRequest request, List<FileCustom> list, File dirFile, String reg, String regType) {
+        File[] listFiles = dirFile.listFiles();
+        if (listFiles != null) {
+            for (File file : listFiles) {
+                if (file.isFile()) {
+                    String suffixType = FileUtils.getFileType(file);
+                    if (suffixType.equals(regType) || (reg != null && file.getName().contains(reg))) {
+                        FileCustom custom = new FileCustom();
+                        custom.setFileName(file.getName());
+                        custom.setLastTime(FileUtils.formatTime(file.lastModified()));
+                        String parentPath = file.getParent();
+                        String prePath = parentPath.substring(
+                                parentPath.indexOf(getFileName(request, null)) + getFileName(request, null).length());
+                        custom.setCurrentPath(File.separator + prePath);
+                        if (file.isDirectory()) {
+                            custom.setFileSize("-");
+                        }else {
+                            custom.setFileSize(FileUtils.getDataSize(file.length()));
+                        }
+                        custom.setFileType(FileUtils.getFileType(file));
+                        list.add(custom);
+                    }
+                }else {
+                    matchFile(request, list, file, reg, regType);
+                }
+            }
+        }
+    }
+
+
 }
