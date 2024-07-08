@@ -6,6 +6,7 @@ import com.qst.yunpan.utils.UserUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+
 @Service
 public class UserService {
     @Autowired
@@ -32,5 +33,16 @@ public class UserService {
             e.printStackTrace();
             return null;
         }
+    }
+
+    public String getCountSize(String username){
+        String countSize = null;
+        try{
+            countSize = userDao.getCountSize(username);
+        }catch(Exception e){
+            e.printStackTrace();
+            return countSize;
+        }
+        return countSize;
     }
 }

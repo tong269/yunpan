@@ -14,4 +14,11 @@
 		select * from user where username = #{username} and password = #{password}
 	</select>
 
+	<select id="getCountSize" parameterType="java.lang.String" resultType="java.lang.String">
+		select countSize from user where username = #{username}
+	</select>
+
+	<update id="reSize">
+		update user set countSize = #{formatSize} where username = #{username}
+	</update>
 </mapper>
