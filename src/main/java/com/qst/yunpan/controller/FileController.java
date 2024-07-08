@@ -128,5 +128,24 @@ public class FileController {
         }
     }
 
+    /**
+     * 删除文件夹
+     *
+     * @param currentPath
+     *            当前路径
+     * @param directoryName
+     *            文件夹名
+     * @return Json对象
+     */
+    @RequestMapping("/delDirectory")
+    public @ResponseBody Result<String> delDirectory(String currentPath,String[] directoryName) {
+        try {
+            fileService.delDirectory(request, currentPath, directoryName);
+            return new Result<>(346, true, "删除成功");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new Result<>(341, false, "删除失败");
+        }
+    }
 
 }

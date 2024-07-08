@@ -2,6 +2,7 @@ package com.qst.yunpan.service;
 
 import com.qst.yunpan.dao.UserDao;
 import com.qst.yunpan.dao.OfficeDao;
+import com.qst.yunpan.dao.FileDao;
 import com.qst.yunpan.pojo.FileCustom;
 import com.qst.yunpan.pojo.User;
 import com.qst.yunpan.utils.FileUtils;
@@ -30,6 +31,8 @@ public class FileService {
     private UserDao userDao;
     @Autowired
     private OfficeDao officeDao;
+    @Autowired
+    private FileDao fileDao;
 
     /**
      * 上传文件至前端页面中的当前路径
@@ -332,5 +335,34 @@ public class FileService {
     public boolean addDirectory(HttpServletRequest request, String currentPath, String directoryName) {
         File file = new File(getFileName(request, currentPath), directoryName);
         return file.mkdir();
+    }
+
+    /**
+     * 删除文件
+     *
+     * @param request
+     * @param currentPath
+     *            当前路径
+     * @param directoryName
+     *            文件名
+     * @throws Exception
+     */
+    public void delDirectory(HttpServletRequest request, String currentPath, String[] directoryName) throws Exception {
+        for (String fileName : directoryName) {
+            //拼接源文件的地址
+            String srcPath = currentPath + File.separator + fileName;
+            //根据源文件相对地址拼接 绝对路径
+            File src = new File(getFileName(request, srcPath));//即将删除的文件地址
+            File dest = new File(getRecyclePath(request));//回收站目录地址
+            //调用commons.jar包中的moveToDirectory移动文件,移至回收站目录
+            org.apache.commons.io.FileUtils.moveToDirectory(src, dest, true);
+            //保存本条删除信息
+            fileDao.insertFiles(srcPath, UserUtils.getUsername(request));
+        }
+        //重新计算文件大小
+        reSize(request);
+    }
+    public String getRecyclePath(HttpServletRequest request) {
+        return getFileName(request, User.RECYCLE);
     }
 }
