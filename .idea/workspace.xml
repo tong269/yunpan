@@ -140,10 +140,9 @@
     </treeState>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="982" />
-    <option name="y" value="540" />
-    <option name="width" value="945" />
-    <option name="height" value="548" />
+    <option name="x" value="952" />
+    <option name="width" value="976" />
+    <option name="height" value="1089" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
@@ -367,7 +366,7 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="793" y="0" width="762" height="878" extended-state="0" />
+    <frame x="768" y="0" width="787" height="878" extended-state="0" />
     <layout>
       <window_info id="Structure" order="0" side_tool="true" weight="0.25" />
       <window_info id="Image Layers" order="1" />
@@ -375,7 +374,7 @@
       <window_info id="UI Designer" order="3" />
       <window_info id="Capture Tool" order="4" />
       <window_info id="Favorites" order="5" side_tool="true" />
-      <window_info content_ui="combo" id="Project" order="6" visible="true" weight="0.3806818" />
+      <window_info content_ui="combo" id="Project" order="6" visible="true" weight="0.36762688" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" />
       <window_info anchor="bottom" id="Run" order="2" sideWeight="0.49915683" weight="0.17828418" />
