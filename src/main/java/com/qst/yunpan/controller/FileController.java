@@ -1,12 +1,14 @@
 package com.qst.yunpan.controller;
 
 import com.qst.yunpan.pojo.FileCustom;
+import com.qst.yunpan.pojo.RecycleFile;
 import com.qst.yunpan.pojo.Result;
 import com.qst.yunpan.pojo.SummaryFile;
 
 
 
 import com.qst.yunpan.service.FileService;
+import net.sf.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -23,7 +25,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 @Controller
 @RequestMapping("/file")
 public class FileController {
@@ -93,16 +99,16 @@ public class FileController {
     }
 
     /**
- * 查找文件（模糊查询）
+    * 查找文件（模糊查询）
             *
             * @param reg
- *            要查找的文件名
- * @param currentPath
- *            当面路径
- * @param regType
- *            查找文件类型
- * @return Json对象
- */
+    *            要查找的文件名
+    * @param currentPath
+    *            当面路径
+    * @param regType
+    *            查找文件类型
+    * @return Json对象
+    */
     @RequestMapping("/searchFile")
     public @ResponseBody Result<List<FileCustom>> searchFile(String reg,String currentPath, String regType) {
         try {
@@ -216,4 +222,113 @@ public class FileController {
             return new Result<>(361, true, "移动失败");
         }
     }
+
+    @RequestMapping("/recycleFile")
+    public String recycleFile() {
+        try {
+            List<RecycleFile> findDelFile = fileService.recycleFiles(request);
+            if(null != findDelFile && findDelFile.size() != 0) {
+                request.setAttribute("findDelFile", findDelFile);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "recycle";
+    }
+
+    /*
+     * --还原回收站文件-- --获取目的路径以及文件名--
+     */
+    @RequestMapping("/revertDirectory")
+    public @ResponseBody Result<String> revertDirectory(int[] fileId) {
+        try {
+            fileService.revertDirectory(request, fileId);
+            return new Result<>(327, true, "还原成功");
+        } catch (Exception e) {
+            return new Result<>(322, false, "还原失败");
+        }
+    }
+
+    /* --清空回收站-- */
+    @RequestMapping("/delAllRecycle")
+    public @ResponseBody Result<String> delAllRecycleDirectory() {
+        try {
+            fileService.delAllRecycle(request);
+            // 返回状态码
+            return new Result<>(327, true, "删除成功");
+        } catch (Exception e) {
+            return new Result<>(322, false, "删除失败");
+        }
+    }
+
+    /**
+     * 打开文件
+     *
+     * @param response
+     *            响应文件流
+     * @param currentPath
+     *            当前路径
+     * @param fileName
+     *            文件名
+     * @param fileType
+     *            文件类型
+     */
+    @RequestMapping("/openFile")
+    public void openFile(HttpServletResponse response, String currentPath,String fileName, String fileType) {
+        try {
+            fileService.respFile(response, request, currentPath, fileName, fileType);
+        }catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @RequestMapping("/getAppFiles")
+    public void getjson(HttpServletRequest req, HttpServletResponse rep)
+            throws Exception {
+        req.setCharacterEncoding("utf-8");
+        rep.setContentType("text/html;charset=utf-8");
+        String path = req.getParameter("path");
+        String username = req.getParameter("username");
+        String realPath = fileService.getFileName(request, path,username);
+        List<FileCustom> listFile = fileService.listFileForApp(realPath,request,username);
+        // Result<List<FileCustom>> resultList = new
+        // Result<List<FileCustom>>(325, true, "获取成功");
+        // resultList.setData(listFile);
+        // return result;
+
+        System.out.println("安卓端访问文件列表..............");
+
+        PrintWriter writer = rep.getWriter();
+        JSONObject object = new JSONObject();
+        if (listFile != null && listFile.size() > 0) {
+            //object.put("result", listFile);
+            object.put("ret", "1000");
+            object.put("msg", "查询成功");
+            object.put("data", listFile);
+        } else {
+            //object.put("result", "fail");// fail代表该目录下无文件
+            object.put("ret", "1001");
+            object.put("msg", "查询失败");
+        }
+        writer.println(object.toString());
+        writer.flush();
+        writer.close();
+    }
+
+    @RequestMapping("/uploadForApp")
+    public @ResponseBody Map<String,String> uploadExt(
+            @RequestParam("file") MultipartFile file, String currentPath,String username) {
+        Map<String,String> map = new HashMap<String,String>();
+        try {
+            fileService.uploadFilePathExt(request, file, currentPath,username);
+            map.put("ret", "1000");
+            map.put("msg", "上传成功");
+        } catch (Exception e) {
+            map.put("ret", "1001");
+            map.put("msg", "上传失败");
+            return map;
+        }
+        return map;
+    }
+
 }

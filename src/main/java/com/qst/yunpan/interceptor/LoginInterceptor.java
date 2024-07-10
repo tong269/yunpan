@@ -21,7 +21,7 @@ public class LoginInterceptor implements HandlerInterceptor{
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object object) throws Exception {
         String url = request.getRequestURI();
 
-        if (url.indexOf("login.action") >= 0 || url.indexOf("regist.action") >= 0 || url.indexOf("share.action") >= 0 || url.indexOf("getShareFiles.action") >= 0 || url.indexOf("download.action") >= 0 || url.indexOf("loginForApp.action") >= 0 || url.indexOf("getAppFiles.action") >= 0|| url.indexOf("uploadForApp.action") >= 0) {
+        if (url.indexOf("registForApp.action") >= 0 || url.indexOf("login.action") >= 0 || url.indexOf("regist.action") >= 0 || url.indexOf("share.action") >= 0 || url.indexOf("getShareFiles.action") >= 0 || url.indexOf("download.action") >= 0 || url.indexOf("loginForApp.action") >= 0 || url.indexOf("getAppFiles.action") >= 0|| url.indexOf("uploadForApp.action") >= 0) {
             return true;
         }
         String username = UserUtils.getUsername(request);

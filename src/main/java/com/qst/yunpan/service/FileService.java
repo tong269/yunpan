@@ -4,10 +4,12 @@ import com.qst.yunpan.dao.UserDao;
 import com.qst.yunpan.dao.OfficeDao;
 import com.qst.yunpan.dao.FileDao;
 import com.qst.yunpan.pojo.FileCustom;
+import com.qst.yunpan.pojo.RecycleFile;
 import com.qst.yunpan.pojo.SummaryFile;
 import com.qst.yunpan.pojo.User;
 import com.qst.yunpan.utils.FileUtils;
 import com.qst.yunpan.utils.UserUtils;
+import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,6 +18,7 @@ import org.apache.ibatis.annotations.Param;
 import org.springframework.stereotype.Repository;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
@@ -576,5 +579,110 @@ public class FileService {
         }
     }
 
+    /*--回收站显示所有删除文件--*/
+    public List<RecycleFile> recycleFiles(HttpServletRequest request) throws Exception {
+        List<RecycleFile> recycleFiles = fileDao.selectFiles(UserUtils.getUsername(request));
+        for (RecycleFile file : recycleFiles) {
+            File f = new File(getRecyclePath(request), new File(file.getFilePath()).getName());
+            file.setFileName(f.getName());
+            file.setLastTime(FileUtils.formatTime(f.lastModified()));
+        }
+        return recycleFiles;
+    }
 
+    /* 还原文件 */
+    //难点2.还原文件时不等同于移动文件到，因为还原文件需要保存多个地址，而还原只单纯保存一个地址
+    //而且还原时需要判断父子文件是否都删除了，此时就需要新建立父文件，再建立子文件，而commons.io.FileUtils则可以很好的解决问题
+    public void revertDirectory(HttpServletRequest request, int[] fileId) throws Exception {
+        for (int id : fileId) {
+            RecycleFile file = fileDao.selectFile(id);
+            String fileName = new File(file.getFilePath()).getName();
+            File src = new File(getRecyclePath(request), fileName);
+            File dest = new File(getFileName(request, file.getFilePath()));
+            org.apache.commons.io.FileUtils.moveToDirectory(src, dest.getParentFile(), true);
+            fileDao.deleteFile(id, UserUtils.getUsername(request));
+        }
+    }
+
+    /*--依次遍历recycle下各个文件，并逐一删除--*/
+    public void delAllRecycle(HttpServletRequest request) throws Exception {
+        //获取回收站中的所有文件
+        File file = new File(getRecyclePath(request));
+        //遍历文件夹下所有文件
+        File[] inferiorFile = file.listFiles();
+        for (File f : inferiorFile) {
+            delFile(f);//调用本类下面的delFile()方法
+        }
+        //根据用户进行删除
+        fileDao.deleteFiles(UserUtils.getUsername(request));
+        reSize(request);
+    }
+
+    public void respFile(HttpServletResponse response, HttpServletRequest request, String currentPath, String fileName, String type) throws IOException {
+        File file = new File(getFileName(request, currentPath), fileName);
+        InputStream inputStream = new FileInputStream(file);
+        if ("docum".equals(type)) {
+            response.setCharacterEncoding("UTF-8");
+            IOUtils.copy(inputStream, response.getWriter(), "UTF-8");
+        } else {
+            IOUtils.copy(inputStream, response.getOutputStream());
+        }
+    }
+
+    public List<FileCustom> listFileForApp(String realPath,HttpServletRequest request,String username) {
+        String preFix = getRootPath(request) + username + File.separator;
+        //对文件操作  需要new出一个文件，代表指向该文件内存地址
+        File[] files = new File(realPath).listFiles();
+        List<FileCustom> lists = new ArrayList<FileCustom>();
+        if (files != null) {
+            for (File file : files) {
+                if (!file.getName().equals(User.RECYCLE)) {
+                    FileCustom custom = new FileCustom();
+                    custom.setFileName(file.getName());
+                    custom.setLastTime(FileUtils.formatTime(file.lastModified()));
+                    /* 保存文件的删除前路径以及当前路径 */
+                    // custom.setFilePath(prePath);
+                    custom.setCurrentPath(realPath.replace(preFix, ""));
+                    if (file.isDirectory()) {
+                        custom.setFileSize("-");
+                        custom.setFileType("folder");
+                    } else {
+                        custom.setFileSize(FileUtils.getDataSize(file.length()));
+                        custom.setFileType("file");
+                    }
+                    lists.add(custom);
+                }
+            }
+        }
+        return lists;
+    }
+
+    /**
+     * 上传文件(安卓接口)
+     *
+     * @param request
+     * @param files
+     *            文件
+     * @param currentPath
+     *            当前路径
+     * @throws Exception
+     */
+    public void uploadFilePathExt(HttpServletRequest request, MultipartFile file, String currentPath,String username) throws Exception {
+        String fileName = file.getOriginalFilename();
+        String filePath = getFileName(request, currentPath,username);
+        File distFile = new File(filePath, fileName);
+        if (!distFile.exists()) {
+            file.transferTo(distFile);
+            if ("office".equals(FileUtils.getFileType(distFile))) {
+                try {
+                    String suffix = fileName.substring(fileName.lastIndexOf(".") + 1);
+                    String documentId = FileUtils.getDocClient().createDocument(distFile, fileName, suffix)
+                            .getDocumentId();
+                    officeDao.addOffice(documentId, FileUtils.MD5(distFile));
+                } catch (Exception e) {
+                }
+            }
+        }
+        reSize(request);
+    }
 }
