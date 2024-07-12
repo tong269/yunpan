@@ -456,7 +456,7 @@ var currentPath;
 	/**拼接url*/
 	function joinUrl(url){
 		var host = window.location.href;
-		host = host.substring(0, host.indexOf("/webapp") + 8);
+		host = host.substring(0, host.indexOf("index"));
 		return host + "share.action?shareUrl=" + url;
 	}
 	/**打开我的分享*/
